@@ -4,18 +4,19 @@
 <meta charset="UTF-8">
 <title>Parkour dos Números Racionais</title>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+<style>*{font-display:swap}</style>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:#0a0a1a; overflow:hidden; font-family:'Nunito',sans-serif; }
-canvas { display:block; }
+canvas { display:block; position:fixed; top:0; left:0; z-index:0; }
 
 .screen {
-  position:fixed; inset:0; z-index:20;
+  position:fixed; inset:0; z-index:99;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
 }
 .screen.off { display:none; }
 
-#start { background:radial-gradient(ellipse at 50% 30%, #2d1b69, #0a0a1a); }
+#start { background:radial-gradient(ellipse at 50% 30%, #2d1b69, #0a0a1a); z-index:100; }
 #end   { background:radial-gradient(ellipse at 50% 30%, #0f3320, #0a0a1a); }
 
 h1 {
@@ -57,7 +58,7 @@ kbd {
 
 /* HUD */
 #hud {
-  position:fixed; top:0; left:0; right:0; z-index:10;
+  position:fixed; top:0; left:0; right:0; z-index:50;
   padding:12px 18px; display:none;
   justify-content:space-between; align-items:flex-start;
   pointer-events:none;
@@ -140,6 +141,26 @@ kbd {
 <div id="fb"></div>
 <div id="prog"><div id="pbg"><div id="pbar"></div></div><div id="plbl">PROGRESSO</div></div>
 <div id="hint"><b>W A S D</b> Mover &nbsp;|&nbsp; <b>Espaço</b> Pular<br><b>Mouse</b> Girar câmera</div>
+
+<!-- Mobile controls -->
+<div id="mobile-controls" style="display:none; position:fixed; bottom:20px; left:0; right:0; z-index:50; pointer-events:none;">
+  <div style="display:flex; justify-content:space-between; padding:0 20px; align-items:flex-end;">
+    <!-- D-pad -->
+    <div style="position:relative; width:140px; height:140px; pointer-events:all;">
+      <button ontouchstart="keys['ArrowUp']=true" ontouchend="delete keys['ArrowUp']"
+        style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.4);font-size:20px;color:#fff;cursor:pointer;">▲</button>
+      <button ontouchstart="keys['ArrowDown']=true" ontouchend="delete keys['ArrowDown']"
+        style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.4);font-size:20px;color:#fff;cursor:pointer;">▼</button>
+      <button ontouchstart="keys['ArrowLeft']=true" ontouchend="delete keys['ArrowLeft']"
+        style="position:absolute;top:50%;left:0;transform:translateY(-50%);width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.4);font-size:20px;color:#fff;cursor:pointer;">◀</button>
+      <button ontouchstart="keys['ArrowRight']=true" ontouchend="delete keys['ArrowRight']"
+        style="position:absolute;top:50%;right:0;transform:translateY(-50%);width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.4);font-size:20px;color:#fff;cursor:pointer;">▶</button>
+    </div>
+    <!-- Jump button -->
+    <button ontouchstart="keys['Space']=true" ontouchend="delete keys['Space']"
+      style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);border:3px solid rgba(255,255,255,.4);font-family:'Fredoka One',cursive;font-size:14px;color:#fff;pointer-events:all;cursor:pointer;box-shadow:0 4px 20px rgba(124,58,237,.5);">PULAR</button>
+  </div>
+</div>
 
 <script>
 // ── Quiz ──────────────────────────────────────────────────────────────────
@@ -322,8 +343,8 @@ function drawBG() {
 // ── Game state ────────────────────────────────────────────────────────────
 let gameActive = false;
 let fase = 0, pontos = 0, locked = false;
-let vy = 0, onGround = false;
-const GRAV = -0.012, JUMP = 0.22;
+let vy = 0, onGround = false, coyoteTime = 0;
+const GRAV = -0.007, JUMP = 0.38;
 
 // Player world position
 const player = { x:0, y:0.5, z:0 };
@@ -332,12 +353,14 @@ const player = { x:0, y:0.5, z:0 };
 let platforms = [];
 
 const keys = {};
+const justPressed = {};
 window.addEventListener('keydown', e => {
+  if(!keys[e.code]) justPressed[e.code] = true;
   keys[e.code] = true;
   if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code) && gameActive)
     e.preventDefault();
 });
-window.addEventListener('keyup', e => { delete keys[e.code]; });
+window.addEventListener('keyup', e => { delete keys[e.code]; delete justPressed[e.code]; });
 
 // Camera drag
 let drag=false, lx=0;
@@ -364,7 +387,7 @@ function buildWorld() {
   fase=0; pontos=0; CAM.angle=0;
 
   QUIZ.forEach((q,qi) => {
-    const Z = -(qi+1)*5;
+    const Z = -(qi+1)*4;
     q.opts.forEach((label,ai) => {
       const X = (ai-(q.opts.length-1)/2)*3.2;
       platforms.push({ x:X, y:0, z:Z, w:2.4, d:2.4, qi, ai, correct:ai===q.ok, label });
@@ -394,16 +417,16 @@ function collide() {
   if(vy>0.01) return;
   const {x:px,y:py,z:pz}=player;
 
-  // start pad: x∈[-2.5,2.5], z∈[-2.5,2.5], top y=0.25
-  if(Math.abs(px)<2.5 && Math.abs(pz)<2.5 && py<=0.55 && py>=0.1){
+  // start pad
+  if(Math.abs(px)<3.0 && Math.abs(pz)<3.0){
     player.y=0.5; vy=0; onGround=true; return;
   }
 
   for(const p of platforms){
-    const hw=p.w/2+0.1, hd=p.d/2+0.1;
+    const hw=p.w/2+0.4, hd=p.d/2+0.4;
     if(Math.abs(px-p.x)<hw && Math.abs(pz-p.z)<hd){
       const top=p.y+0.5;
-      if(py<=top+0.5 && py>=top-0.3){
+      if(py<=top+0.8 && py>=top-0.4){
         player.y=top; vy=0; onGround=true;
         if(p.qi===fase && !locked){
           locked=true;
@@ -426,6 +449,7 @@ function collide() {
       }
     }
   }
+  if(onGround) coyoteTime=8;
   onGround=false;
 }
 
@@ -445,11 +469,12 @@ function loop(t=0){
   const dt=Math.min((t-last)/16.6,3); last=t;
 
   drawBG();
+  Object.keys(justPressed).forEach(k=>delete justPressed[k]);
 
   if(!gameActive) return;
 
   // movement
-  const spd=0.1*dt;
+  const spd=0.18*dt;
   const fwd  ={ x:-Math.sin(CAM.angle), z:-Math.cos(CAM.angle) };
   const right={ x: Math.cos(CAM.angle), z:-Math.sin(CAM.angle) };
 
@@ -458,7 +483,13 @@ function loop(t=0){
   if(keys['KeyA']||keys['ArrowLeft']) { player.x-=right.x*spd; player.z-=right.z*spd; }
   if(keys['KeyD']||keys['ArrowRight']){ player.x+=right.x*spd; player.z+=right.z*spd; }
 
-  if((keys['Space']||keys['KeyZ'])&&onGround){ vy=JUMP; onGround=false; }
+  // coyote time: allow jump up to 8 frames after leaving ground
+  if(justPressed['Space']||justPressed['KeyZ']||keys['KeyZ']||keys['Space']){
+    if(onGround || coyoteTime > 0){
+      vy=JUMP; onGround=false; coyoteTime=0;
+    }
+  }
+  if(!onGround) coyoteTime = Math.max(0, coyoteTime-1);
   vy+=GRAV*dt;
   player.y+=vy*dt;
   collide();
@@ -466,7 +497,7 @@ function loop(t=0){
   if(player.y<-6){ player.x=0;player.y=0.5;player.z=0; vy=0;onGround=true; flash('💀 Caiu! Tente de novo.',false); }
 
   // Draw start pad
-  drawPlatform(0,-0.25,0, 5,5, '#6b21a8','#4a1772', null);
+  drawPlatform(0,-0.25,0, 6,6, '#6b21a8','#4a1772', null);
 
   // Draw platforms (painter's order)
   sortedPlatforms().forEach(p=>{
@@ -490,6 +521,11 @@ function showGame(){
   document.getElementById('hud').style.display='flex';
   document.getElementById('prog').style.display='block';
   document.getElementById('hint').style.display='block';
+  // show mobile controls on touch devices
+  if('ontouchstart' in window){
+    document.getElementById('mobile-controls').style.display='block';
+    document.getElementById('hint').style.display='none';
+  }
 }
 function endGame(){
   gameActive=false;
