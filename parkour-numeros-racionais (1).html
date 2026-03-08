@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Parkour dos Números Racionais</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+<style>*{font-display:swap}</style>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a1a; overflow:hidden; font-family:'Nunito',sans-serif; }
+canvas { display:block; position:fixed; top:0; left:0; z-index:0; }
+
+.screen {
+  position:fixed; inset:0; z-index:99;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+.screen.off { display:none; }
+
+#start { background:radial-gradient(ellipse at 50% 30%, #2d1b69, #0a0a1a); z-index:100; }
+#end   { background:radial-gradient(ellipse at 50% 30%, #0f3320, #0a0a1a); }
+
+h1 {
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(32px,6vw,64px); color:#fff; text-align:center;
+  text-shadow:0 0 40px rgba(168,85,247,.9); line-height:1.15; margin-bottom:8px;
+}
+.sub { font-size:16px; color:#c4b5fd; margin-bottom:22px; text-align:center; }
+.howlabel { font-size:12px; letter-spacing:3px; text-transform:uppercase; color:#a78bfa; margin-bottom:12px; }
+
+.cards { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:28px; max-width:520px; }
+.card {
+  background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18);
+  border-radius:14px; padding:11px 14px;
+  display:flex; align-items:center; gap:10px; flex:1; min-width:118px;
+}
+.ci { font-size:24px; }
+.ct { font-family:'Fredoka One',cursive; font-size:13px; color:#c4b5fd; margin-bottom:2px; }
+.cd { font-size:11px; color:rgba(255,255,255,.6); line-height:1.4; }
+kbd {
+  display:inline-block; background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.3); border-radius:4px;
+  padding:0 5px; font-size:10px; color:#e0d0ff; font-family:monospace;
+}
+
+.btn {
+  font-family:'Fredoka One',cursive; font-size:20px;
+  padding:13px 44px; border:none; border-radius:50px; cursor:pointer;
+  background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff;
+  box-shadow:0 8px 28px rgba(124,58,237,.5);
+  transition:transform .15s,box-shadow .15s;
+}
+.btn:hover { transform:translateY(-3px) scale(1.04); }
+.btn.g { background:linear-gradient(135deg,#059669,#10b981); box-shadow:0 8px 28px rgba(16,185,129,.5); }
+
+#end h2 { font-family:'Fredoka One',cursive; font-size:clamp(30px,5vw,56px); color:#4ade80; text-shadow:0 0 30px rgba(74,222,128,.6); margin-bottom:10px; }
+#fs { font-family:'Fredoka One',cursive; font-size:clamp(40px,8vw,88px); color:#fff; margin-bottom:8px; }
+#em { font-size:17px; color:#a7f3d0; margin-bottom:34px; text-align:center; }
+
+/* HUD */
+#hud {
+  position:fixed; top:0; left:0; right:0; z-index:50;
+  padding:12px 18px; display:none;
+  justify-content:space-between; align-items:flex-start;
+  pointer-events:none;
+}
+#qbox {
+  background:rgba(20,10,50,.9); border:2px solid rgba(150,100,255,.5);
+  border-radius:16px; padding:10px 20px; max-width:480px;
+}
+#qlbl { font-size:11px; color:#a78bfa; letter-spacing:2px; text-transform:uppercase; margin-bottom:2px; }
+#qtxt { font-family:'Fredoka One',cursive; font-size:18px; color:#fff; }
+#sbox {
+  background:rgba(10,40,20,.9); border:2px solid rgba(80,220,120,.5);
+  border-radius:16px; padding:10px 16px; text-align:center;
+}
+#slbl { font-size:10px; color:#6ee7b7; letter-spacing:2px; text-transform:uppercase; }
+#sval { font-family:'Fredoka One',cursive; font-size:30px; color:#fff; line-height:1; }
+#flbl { font-size:11px; color:#6ee7b7; margin-top:1px; }
+
+/* feedback */
+#fb {
+  position:fixed; top:50%; left:50%;
+  transform:translate(-50%,-50%) scale(0);
+  font-family:'Fredoka One',cursive; font-size:56px;
+  pointer-events:none; z-index:15;
+  transition:transform .15s cubic-bezier(.34,1.56,.64,1);
+  text-shadow:0 3px 16px rgba(0,0,0,.6);
+}
+#fb.show { transform:translate(-50%,-50%) scale(1); }
+#fb.ok  { color:#4ade80; }
+#fb.err { color:#f87171; }
+
+/* progress */
+#prog {
+  position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+  width:260px; display:none;
+}
+#pbg { background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.2); border-radius:8px; padding:3px; }
+#pbar { height:7px; border-radius:5px; width:0%; background:linear-gradient(90deg,#7c3aed,#a855f7); transition:width .5s; }
+#plbl { text-align:center; font-size:10px; color:rgba(255,255,255,.5); margin-top:3px; letter-spacing:1px; }
+
+/* hint */
+#hint {
+  position:fixed; bottom:16px; left:16px; z-index:10; display:none;
+  background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.15);
+  border-radius:10px; padding:8px 12px; color:rgba(255,255,255,.7); font-size:11px; line-height:1.8;
+}
+#hint b { color:#a78bfa; }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<!-- SCREENS -->
+<div class="screen" id="start">
+  <h1>🎮 Parkour dos<br>Números Racionais</h1>
+  <p class="sub">Responda pulando na plataforma certa!</p>
+  <p class="howlabel">📖 Como Jogar</p>
+  <div class="cards">
+    <div class="card"><div class="ci">🕹️</div><div><div class="ct">Mover</div><div class="cd"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou setas</div></div></div>
+    <div class="card"><div class="ci">⬆️</div><div><div class="ct">Pular</div><div class="cd"><kbd>Espaço</kbd> para saltar</div></div></div>
+    <div class="card"><div class="ci">🖱️</div><div><div class="ct">Câmera</div><div class="cd">Arraste o mouse</div></div></div>
+    <div class="card"><div class="ci">🟢</div><div><div class="ct">Responder</div><div class="cd">Pule na plataforma correta!</div></div></div>
+  </div>
+  <button class="btn" id="btn-start">JOGAR AGORA ▶</button>
+</div>
+
+<div class="screen off" id="end">
+  <h2>🏆 Parabéns!</h2>
+  <div id="fs">0 pts</div>
+  <p id="em"></p>
+  <button class="btn g" id="btn-restart">JOGAR NOVAMENTE 🔄</button>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="qbox"><div id="qlbl">❓ Pergunta</div><div id="qtxt">—</div></div>
+  <div id="sbox"><div id="slbl">Pontuação</div><div id="sval">0</div><div id="flbl">Fase 1/5</div></div>
+</div>
+<div id="fb"></div>
+<div id="prog"><div id="pbg"><div id="pbar"></div></div><div id="plbl">PROGRESSO</div></div>
+<div id="hint"><b>W A S D</b> Mover &nbsp;|&nbsp; <b>Espaço</b> Pular<br><b>Mouse</b> Girar câmera</div>
+
+<!-- Mobile controls -->
+<div id="mobile-controls" style="display:none; position:fixed; bottom:20px; left:0; right:0; z-index:50; pointer-events:none;">
+  <div style="display:flex; justify-content:space-between; padding:0 20px; align-items:flex-end;">
+    <!-- D-pad -->
+    <div style="position:relative; width:140px; height:140px; pointer-events:all;">
+      <button ontouchstart="keys['ArrowUp']=true" ontouchend="delete keys['ArrowUp']"
+        style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.4);font-size:20px;color:#fff;cursor:pointer;">▲</button>
+      <button ontouchstart="keys['ArrowDown']=true" ontouchend="delete keys['ArrowDown']"
+        style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.4);font-size:20px;color:#fff;cursor:pointer;">▼</button>
+      <button ontouchstart="keys['ArrowLeft']=true" ontouchend="delete keys['ArrowLeft']"
+        style="position:absolute;top:50%;left:0;transform:translateY(-50%);width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.4);font-size:20px;color:#fff;cursor:pointer;">◀</button>
+      <button ontouchstart="keys['ArrowRight']=true" ontouchend="delete keys['ArrowRight']"
+        style="position:absolute;top:50%;right:0;transform:translateY(-50%);width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.4);font-size:20px;color:#fff;cursor:pointer;">▶</button>
+    </div>
+    <!-- Jump button -->
+    <button ontouchstart="keys['Space']=true" ontouchend="delete keys['Space']"
+      style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);border:3px solid rgba(255,255,255,.4);font-family:'Fredoka One',cursive;font-size:14px;color:#fff;pointer-events:all;cursor:pointer;box-shadow:0 4px 20px rgba(124,58,237,.5);">PULAR</button>
+  </div>
+</div>
+
+<script>
+// ── Quiz ──────────────────────────────────────────────────────────────────
+const QUIZ = [
+  { q:'Qual fração representa METADE?',       opts:['1/4','1/2','3/4'],  ok:1 },
+  { q:'Qual decimal é MAIOR?',                opts:['0,3','0,5','0,8'],  ok:2 },
+  { q:'25% corresponde a qual fração?',       opts:['1/2','1/4','3/4'],  ok:1 },
+  { q:'Comeu 2 de 4 pedaços. Quanto comeu?',  opts:['1/4','1/2','3/4'],  ok:1 },
+  { q:'Qual fração representa 75%?',          opts:['1/4','1/2','3/4'],  ok:2 },
+];
+
+// ── Canvas setup ──────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+function resize() { canvas.width=innerWidth; canvas.height=innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+// ── Isometric projection helpers ──────────────────────────────────────────
+// World: X = right, Y = up, Z = depth (into screen)
+// We render a top-down isometric view
+const CAM = { angle:0, tilt:0.55 }; // horizontal rotation, tilt
+
+function project(wx, wy, wz) {
+  // rotate around Y axis
+  const rx = wx * Math.cos(CAM.angle) - wz * Math.sin(CAM.angle);
+  const rz = wx * Math.sin(CAM.angle) + wz * Math.cos(CAM.angle);
+  // isometric to screen
+  const SCALE = Math.min(canvas.width, canvas.height) * 0.09;
+  const sx = canvas.width  * 0.5 + rx * SCALE;
+  const sy = canvas.height * 0.55 - wy * SCALE * 0.9 - rz * SCALE * CAM.tilt;
+  return { x: sx, y: sy, scale: SCALE };
+}
+
+// ── Draw helpers ──────────────────────────────────────────────────────────
+function drawPlatform(wx, wy, wz, w, d, topColor, sideColor, label, alpha=1) {
+  // Draw an isometric box (top face + two visible sides)
+  const tl = project(wx - w/2, wy,     wz - d/2);
+  const tr = project(wx + w/2, wy,     wz - d/2);
+  const br = project(wx + w/2, wy,     wz + d/2);
+  const bl = project(wx - w/2, wy,     wz + d/2);
+  const h  = tl.scale * 0.18; // side height in px
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Top face
+  ctx.beginPath();
+  ctx.moveTo(tl.x, tl.y); ctx.lineTo(tr.x, tr.y);
+  ctx.lineTo(br.x, br.y); ctx.lineTo(bl.x, bl.y);
+  ctx.closePath();
+  ctx.fillStyle = topColor;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Left side face
+  ctx.beginPath();
+  ctx.moveTo(bl.x, bl.y); ctx.lineTo(bl.x, bl.y + h);
+  ctx.lineTo(br.x, br.y + h); ctx.lineTo(br.x, br.y);
+  ctx.closePath();
+  ctx.fillStyle = sideColor;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Right side face
+  ctx.beginPath();
+  ctx.moveTo(br.x, br.y); ctx.lineTo(br.x, br.y + h);
+  ctx.lineTo(tr.x, tr.y + h); ctx.lineTo(tr.x, tr.y);
+  ctx.closePath();
+  ctx.fillStyle = shadeColor(sideColor, -20);
+  ctx.fill();
+  ctx.stroke();
+
+  // Label
+  if (label) {
+    const cx = (tl.x + tr.x + br.x + bl.x) / 4;
+    const cy = (tl.y + tr.y + br.y + bl.y) / 4;
+    const fs = Math.max(11, tl.scale * 0.28);
+    ctx.font = `bold ${fs}px 'Fredoka One', Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // pill background
+    const tw = ctx.measureText(label).width + 16;
+    const th = fs + 10;
+    roundRect(ctx, cx - tw/2, cy - th/2, tw, th, 8,
+      label === '_correct_' ? 'rgba(0,200,80,0.85)' : 'rgba(30,60,120,0.85)',
+      'rgba(255,255,255,0.2)');
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, cx, cy);
+  }
+
+  ctx.restore();
+}
+
+function shadeColor(hex, pct) {
+  // darken/lighten a css color string (rgba or hex)
+  // Simple: just return a darker version
+  const d = pct < 0 ? Math.abs(pct) : 0;
+  const c = parseInt(hex.replace('#',''), 16);
+  const r = Math.max(0, ((c>>16)&0xff) - d);
+  const g = Math.max(0, ((c>>8) &0xff) - d);
+  const b = Math.max(0, ( c     &0xff) - d);
+  return `rgb(${r},${g},${b})`;
+}
+
+function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+  if (fill)   { ctx.fillStyle=fill;     ctx.fill(); }
+  if (stroke) { ctx.strokeStyle=stroke; ctx.lineWidth=1.5; ctx.stroke(); }
+}
+
+function drawPlayer(wx, wy, wz) {
+  const p = project(wx, wy, wz);
+  const s = p.scale * 0.22;
+  // Shadow
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(p.x, p.y + s*0.1, s*0.6, s*0.2, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  // Body
+  ctx.fillStyle = '#e03030';
+  ctx.fillRect(p.x - s*0.35, p.y - s*1.1, s*0.7, s*0.65);
+  // Head
+  ctx.fillStyle = '#f5c89a';
+  ctx.fillRect(p.x - s*0.27, p.y - s*1.75, s*0.54, s*0.54);
+  // Eyes
+  ctx.fillStyle = '#222';
+  ctx.fillRect(p.x - s*0.16, p.y - s*1.58, s*0.1, s*0.1);
+  ctx.fillRect(p.x + s*0.06, p.y - s*1.58, s*0.1, s*0.1);
+  // Legs
+  ctx.fillStyle = '#2244bb';
+  ctx.fillRect(p.x - s*0.32, p.y - s*0.45, s*0.27, s*0.45);
+  ctx.fillRect(p.x + s*0.05, p.y - s*0.45, s*0.27, s*0.45);
+}
+
+// ── Stars background ──────────────────────────────────────────────────────
+const STARS = Array.from({length:120}, () => ({
+  x: Math.random(), y: Math.random(),
+  r: Math.random()*1.5+0.3,
+  a: Math.random(), da: (Math.random()-0.5)*0.008
+}));
+
+function drawStars() {
+  STARS.forEach(s => {
+    s.a = Math.max(0.1, Math.min(1, s.a + s.da));
+    if (s.a <= 0.1 || s.a >= 1) s.da *= -1;
+    ctx.save();
+    ctx.globalAlpha = s.a;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(s.x * canvas.width, s.y * canvas.height, s.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+// ── Background gradient ───────────────────────────────────────────────────
+function drawBG() {
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, '#0d0b2b');
+  grad.addColorStop(1, '#1a0a3a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawStars();
+}
+
+// ── Game state ────────────────────────────────────────────────────────────
+let gameActive = false;
+let fase = 0, pontos = 0, locked = false;
+let vy = 0, onGround = false, coyoteTime = 0;
+const GRAV = -0.007, JUMP = 0.38;
+
+// Player world position
+const player = { x:0, y:0.5, z:0 };
+
+// Platforms: { x,y,z,w,d,qi,ai,correct }
+let platforms = [];
+
+const keys = {};
+const justPressed = {};
+window.addEventListener('keydown', e => {
+  if(!keys[e.code]) justPressed[e.code] = true;
+  keys[e.code] = true;
+  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code) && gameActive)
+    e.preventDefault();
+});
+window.addEventListener('keyup', e => { delete keys[e.code]; delete justPressed[e.code]; });
+
+// Camera drag
+let drag=false, lx=0;
+canvas.addEventListener('mousedown', e=>{drag=true;lx=e.clientX;});
+window.addEventListener('mouseup', ()=>drag=false);
+window.addEventListener('mousemove', e=>{
+  if(!drag)return;
+  CAM.angle -= (e.clientX-lx)*0.005;
+  lx=e.clientX;
+});
+canvas.addEventListener('touchstart', e=>{drag=true;lx=e.touches[0].clientX;},{passive:true});
+window.addEventListener('touchend', ()=>drag=false);
+window.addEventListener('touchmove', e=>{
+  if(!drag)return;
+  CAM.angle -= (e.touches[0].clientX-lx)*0.005;
+  lx=e.touches[0].clientX;
+},{passive:true});
+
+// ── Build world ───────────────────────────────────────────────────────────
+function buildWorld() {
+  platforms = [];
+  player.x=0; player.y=0.5; player.z=0;
+  vy=0; onGround=true; locked=false;
+  fase=0; pontos=0; CAM.angle=0;
+
+  QUIZ.forEach((q,qi) => {
+    const Z = -(qi+1)*4;
+    q.opts.forEach((label,ai) => {
+      const X = (ai-(q.opts.length-1)/2)*3.2;
+      platforms.push({ x:X, y:0, z:Z, w:2.4, d:2.4, qi, ai, correct:ai===q.ok, label });
+    });
+  });
+  updateHUD();
+}
+
+// ── HUD ───────────────────────────────────────────────────────────────────
+function updateHUD() {
+  document.getElementById('qtxt').textContent = QUIZ[Math.min(fase,QUIZ.length-1)].q;
+  document.getElementById('sval').textContent = pontos;
+  document.getElementById('flbl').textContent = `Fase ${fase+1}/${QUIZ.length}`;
+  document.getElementById('pbar').style.width  = (fase/QUIZ.length*100)+'%';
+}
+
+let fbT=null;
+function flash(txt,ok) {
+  const el=document.getElementById('fb');
+  el.textContent=txt; el.className='show '+(ok?'ok':'err');
+  clearTimeout(fbT);
+  fbT=setTimeout(()=>el.className='',1400);
+}
+
+// ── Collision ─────────────────────────────────────────────────────────────
+function collide() {
+  if(vy>0.01) return;
+  const {x:px,y:py,z:pz}=player;
+
+  // start pad
+  if(Math.abs(px)<3.0 && Math.abs(pz)<3.0){
+    player.y=0.5; vy=0; onGround=true; return;
+  }
+
+  for(const p of platforms){
+    const hw=p.w/2+0.4, hd=p.d/2+0.4;
+    if(Math.abs(px-p.x)<hw && Math.abs(pz-p.z)<hd){
+      const top=p.y+0.5;
+      if(py<=top+0.8 && py>=top-0.4){
+        player.y=top; vy=0; onGround=true;
+        if(p.qi===fase && !locked){
+          locked=true;
+          if(p.correct){
+            pontos+=100; flash('✓ CORRETO! +100',true);
+          } else {
+            pontos=Math.max(0,pontos-20); flash('✗ ERRADO! -20',false);
+          }
+          updateHUD();
+          setTimeout(()=>{
+            if(p.correct){
+              fase++;
+              if(fase>=QUIZ.length){endGame();return;}
+              updateHUD();
+            }
+            locked=false;
+          },900);
+        }
+        return;
+      }
+    }
+  }
+  if(onGround) coyoteTime=8;
+  onGround=false;
+}
+
+// ── Sort platforms by Z for painter's algorithm ───────────────────────────
+function sortedPlatforms() {
+  return [...platforms].sort((a,b)=>{
+    const az = a.x*Math.sin(CAM.angle)+a.z*Math.cos(CAM.angle);
+    const bz = b.x*Math.sin(CAM.angle)+b.z*Math.cos(CAM.angle);
+    return bz-az;
+  });
+}
+
+// ── Main loop ─────────────────────────────────────────────────────────────
+let last=0;
+function loop(t=0){
+  requestAnimationFrame(loop);
+  const dt=Math.min((t-last)/16.6,3); last=t;
+
+  drawBG();
+  Object.keys(justPressed).forEach(k=>delete justPressed[k]);
+
+  if(!gameActive) return;
+
+  // movement
+  const spd=0.18*dt;
+  const fwd  ={ x:-Math.sin(CAM.angle), z:-Math.cos(CAM.angle) };
+  const right={ x: Math.cos(CAM.angle), z:-Math.sin(CAM.angle) };
+
+  if(keys['KeyW']||keys['ArrowUp'])   { player.x+=fwd.x*spd;   player.z+=fwd.z*spd; }
+  if(keys['KeyS']||keys['ArrowDown']) { player.x-=fwd.x*spd;   player.z-=fwd.z*spd; }
+  if(keys['KeyA']||keys['ArrowLeft']) { player.x-=right.x*spd; player.z-=right.z*spd; }
+  if(keys['KeyD']||keys['ArrowRight']){ player.x+=right.x*spd; player.z+=right.z*spd; }
+
+  // coyote time: allow jump up to 8 frames after leaving ground
+  if(justPressed['Space']||justPressed['KeyZ']||keys['KeyZ']||keys['Space']){
+    if(onGround || coyoteTime > 0){
+      vy=JUMP; onGround=false; coyoteTime=0;
+    }
+  }
+  if(!onGround) coyoteTime = Math.max(0, coyoteTime-1);
+  vy+=GRAV*dt;
+  player.y+=vy*dt;
+  collide();
+
+  if(player.y<-6){ player.x=0;player.y=0.5;player.z=0; vy=0;onGround=true; flash('💀 Caiu! Tente de novo.',false); }
+
+  // Draw start pad
+  drawPlatform(0,-0.25,0, 6,6, '#6b21a8','#4a1772', null);
+
+  // Draw platforms (painter's order)
+  sortedPlatforms().forEach(p=>{
+    const topC  = p.correct ? '#166534' : '#1e3a6e';
+    const sideC = p.correct ? '#14532d' : '#1e3a8a';
+    drawPlatform(p.x, p.y-0.27, p.z, p.w, p.d, topC, sideC, p.label);
+  });
+
+  // Draw player on top of everything
+  drawPlayer(player.x, player.y, player.z);
+
+  // Camera auto-follow on Z
+  // (no-op in 2D iso — view is centered)
+}
+requestAnimationFrame(loop);
+
+// ── Screen helpers ────────────────────────────────────────────────────────
+function showGame(){
+  document.getElementById('start').classList.add('off');
+  document.getElementById('end').classList.add('off');
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('prog').style.display='block';
+  document.getElementById('hint').style.display='block';
+  // show mobile controls on touch devices
+  if('ontouchstart' in window){
+    document.getElementById('mobile-controls').style.display='block';
+    document.getElementById('hint').style.display='none';
+  }
+}
+function endGame(){
+  gameActive=false;
+  document.getElementById('pbar').style.width='100%';
+  document.getElementById('fs').textContent=pontos+' pts';
+  document.getElementById('em').textContent=
+    pontos>=450?'🌟 Perfeito! Você dominou os números racionais!':
+    pontos>=250?'👍 Muito bom! Continue praticando!':
+                '📚 Bom esforço! Tente novamente!';
+  document.getElementById('end').classList.remove('off');
+  document.getElementById('hud').style.display='none';
+  document.getElementById('prog').style.display='none';
+  document.getElementById('hint').style.display='none';
+}
+
+document.getElementById('btn-start').addEventListener('click',()=>{
+  buildWorld(); showGame(); gameActive=true;
+});
+document.getElementById('btn-restart').addEventListener('click',()=>{
+  buildWorld(); showGame(); gameActive=true;
+});
+</script>
+</body>
+</html>
